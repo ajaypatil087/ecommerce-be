@@ -1,0 +1,33 @@
+{
+  "name": "infra",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "bootstrap": "cdk bootstrap aws://000000000000/us-east-1",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.15.0",
+    "@swc/jest": "^0.2.39",
+    "@types/aws-lambda": "^8.10.164",
+    "@types/jest": "^30",
+    "@types/node": "^24.10.1",
+    "aws-cdk": "2.1146.0",
+    "jest": "^30",
+    "tsx": "^4.23.0",
+    "typescript": "~7.0.2"
+  },
+  "dependencies": {
+    "@aws-sdk/credential-provider-node": "^3.972.87",
+    "@aws-sdk/util-dynamodb": "^3.996.9",
+    "@opensearch-project/opensearch": "^3.9.0",
+    "aws-cdk-lib": "^2.273.0",
+    "constructs": "^10.5.0",
+    "dotenv": "^18.0.8",
+    "esbuild": "^0.28.2"
+  }
+}

@@ -1,0 +1,30 @@
+name: floci-local
+services:
+  floci:
+    image: floci/floci:latest # use the same image you ran before if it differs
+    container_name: floci
+    ports:
+      - "4566:4566"
+    environment:
+      FLOCI_SERVICES_DOCKER_NETWORK: floci-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - floci-net
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    container_name: opensearch
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    networks:
+      - floci-net
+
+networks:
+  floci-net:
+    name: floci-net
