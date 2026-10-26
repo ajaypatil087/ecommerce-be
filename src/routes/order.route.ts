@@ -1,5 +1,5 @@
 import express from "express";
-import { createOrder, getAllOrders, getOrderById, getOrdersByUserId, updateOrderStatus } from "../services/order.service";
+import { createOrder, getAllOrders, getOrderById, getOrdersByUserId, updateOrderStatus } from "../services";
 import { authMiddleware } from "../middlewares/auth.middleware";
 
 const orderRouter = express.Router();

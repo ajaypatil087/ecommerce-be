@@ -1,12 +1,5 @@
 import { Router } from "express";
-import {
-  createProduct,
-  deleteProduct,
-  getProductById,
-  getProducts,
-  searchProducts,
-  updateProduct,
-} from "../services/product.service";
+import { createProduct, deleteProduct, getProductById, getProducts, searchProducts, updateProduct } from "../services";
 
 const productsRouter = Router();
 
