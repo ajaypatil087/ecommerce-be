@@ -284,7 +284,11 @@ export const mySelf = async (req: Request, res: Response) => {
         Limit: 1,
       }),
     );
-    return res.status(200).json({ user });
+    if (!user.Items || user.Items.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const { passwordHash, ...userWithoutPassword } = user.Items[0];
+    return res.status(200).json({ user: userWithoutPassword });
   } catch (error) {
     logger.error({ err: error }, "Failed to fetch user");
     return res.status(500).json({ error: "Internal server error" });
