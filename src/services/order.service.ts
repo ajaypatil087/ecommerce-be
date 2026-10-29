@@ -4,6 +4,7 @@ import { dynamoDbClient, CART_ORDERS_TABLE } from "../db/dynamoDB";
 import { GetCommand, PutCommand, ScanCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 import orderSchema from "../dto/orderSchema";
 import { CartValidationError, resolveCartProducts } from "./cart.service";
+import logger from "../util/logger";
 
 export const createOrder = async (req: Request, res: Response) => {
   const userId = getAuthenticatedUserId(req);
@@ -77,7 +78,7 @@ export const createOrder = async (req: Request, res: Response) => {
     if (error instanceof Error && error.name === "ConditionalCheckFailedException") {
       return res.status(409).json({ error: "An order with this ID already exists" });
     }
-    console.error("Error creating order:", error);
+    logger.error({ err: error }, "Failed to create order");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -105,7 +106,7 @@ export const getOrdersByUserId = async (req: Request, res: Response) => {
 
     return res.status(200).json(orders.Item);
   } catch (error) {
-    console.error("Error retrieving orders:", error);
+    logger.error({ err: error }, "Failed to retrieve orders");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -134,7 +135,7 @@ export const getOrderById = async (req: Request, res: Response) => {
 
     return res.status(200).json(order.Item);
   } catch (error) {
-    console.error("Error retrieving order:", error);
+    logger.error({ err: error }, "Failed to retrieve order");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -180,7 +181,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     if (error instanceof Error && error.name === "ConditionalCheckFailedException") {
       return res.status(404).json({ error: "Order not found for this user" });
     }
-    console.error("Error updating order status:", error);
+    logger.error({ err: error }, "Failed to update order status");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -214,7 +215,7 @@ export const getAllOrders = async (_req: Request, res: Response) => {
 
     return res.status(200).json(orders);
   } catch (error) {
-    console.error("Error retrieving all orders:", error);
+    logger.error({ err: error }, "Failed to retrieve orders");
     return res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -3,6 +3,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as eventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as path from "node:path";
 import { Construct } from "constructs";
 import { createCartOrderTable } from "./tables/cart-order-table";
@@ -17,12 +18,27 @@ export class InfraStack extends cdk.Stack {
     const productsTable = createProductsTable(this);
     const cartOrderTable = createCartOrderTable(this);
 
+    const usersIndexerLogGroup = new logs.LogGroup(this, "UsersIndexerLogGroup", {
+      logGroupName: "/ecommerce/index-users",
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    const productsIndexerLogGroup = new logs.LogGroup(this, "ProductsIndexerLogGroup", {
+      logGroupName: "/ecommerce/index-products",
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     const indexUsersFunction = new lambdaNodejs.NodejsFunction(this, "IndexUsersFunction", {
       entry: path.join(__dirname, "../lambda/user-indexer.ts"),
       handler: "handler",
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
+      logGroup: usersIndexerLogGroup,
+      loggingFormat: lambda.LoggingFormat.JSON,
+      applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
+      systemLogLevelV2: lambda.SystemLogLevel.INFO,
       environment: {
         OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT ?? "http://opensearch:9200",
         OPENSEARCH_INDEX: "users",
@@ -51,6 +67,10 @@ export class InfraStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
+      logGroup: productsIndexerLogGroup,
+      loggingFormat: lambda.LoggingFormat.JSON,
+      applicationLogLevelV2: lambda.ApplicationLogLevel.INFO,
+      systemLogLevelV2: lambda.SystemLogLevel.INFO,
       environment: {
         OPENSEARCH_ENDPOINT: process.env.OPENSEARCH_ENDPOINT ?? "http://opensearch:9200",
         OPENSEARCH_INDEX: "products",

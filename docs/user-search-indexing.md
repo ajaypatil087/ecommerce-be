@@ -32,6 +32,12 @@ The stack enables a `NEW_IMAGE` DynamoDB stream on `users` and connects it direc
 
 The API still needs `AWS_ENDPOINT_URL` to write to Floci, but it no longer needs `USER_CREATED_QUEUE_URL`. The Lambda subscribes directly to the table stream and indexes only new changes; existing table records are not automatically backfilled. Use the project seed script again or add a one-time backfill process if records already exist. Local Floci credentials are for development only; AWS deployments should use the normal IAM role/credential chain.
 
+## CloudWatch Logs
+
+The CDK stack creates `/ecommerce/index-users` and `/ecommerce/index-products` log groups for the two indexer Lambdas. Both retain logs for 30 days, use JSON-formatted Lambda runtime logs, and retain the log groups when the stack is deleted. In AWS, open **CloudWatch → Logs → Log groups**, choose the relevant group, and inspect its log streams. Search for `ERROR` or `Failed to process` to investigate indexing failures. When running against local Floci, use the emulator's Lambda log output; local logs are not sent to AWS CloudWatch.
+
+The Express API is not deployed by this CDK stack. Its stdout/stderr must be collected by the hosting platform's log driver or agent before it appears in CloudWatch.
+
 ## 3. Create a user and follow the stream
 
 Send a valid request to the route registered by your users router. For example, assuming it is mounted at `/api/user`:

@@ -3,6 +3,7 @@ import cartSchema from "../dto/cartSchema";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { PRODUCTS_TABLE, CART_ORDERS_TABLE, dynamoDbClient } from "../db/dynamoDB";
 import { getAuthenticatedUserId } from "../util/common";
+import logger from "../util/logger";
 
 export class CartValidationError extends Error {
   constructor(
@@ -93,7 +94,7 @@ const sendCartError = (res: Response, error: unknown) => {
     return res.status(error.statusCode).json({ error: error.message, ...error.details });
   }
 
-  console.error("Cart operation failed:", error);
+  logger.error({ err: error }, "Cart operation failed");
   return res.status(500).json({ error: "Internal server error" });
 };
 
@@ -194,7 +195,7 @@ export const getCartByUserId = async (req: Request, res: Response) => {
 
     return res.status(200).json(cart);
   } catch (error) {
-    console.error("Error retrieving cart:", error);
+    logger.error({ err: error }, "Failed to retrieve cart");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -219,7 +220,7 @@ export const getAllCarts = async (_req: Request, res: Response) => {
 
     return res.status(200).json(result.Items);
   } catch (error) {
-    console.error("Error retrieving all carts:", error);
+    logger.error({ err: error }, "Failed to retrieve carts");
     return res.status(500).json({ error: "Internal server error" });
   }
 };

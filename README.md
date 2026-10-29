@@ -238,7 +238,7 @@ Add `-v` only if you want to delete the named volumes and wipe Floci/OpenSearch 
 
 - **`cdk deploy` hits real AWS.** The Floci `AWS_*` exports are missing in that shell. Re-export them, then bootstrap/deploy again. Do not run CDK against your default AWS profile for this app.
 - **Tables missing / `Cart storage is not configured`.** CDK did not deploy, or `.env` table names do not match the stack.
-- **Lambda never indexes OpenSearch.** Confirm Floci has the Docker socket, OpenSearch is on the same compose network, and `OPENSEARCH_ENDPOINT=http://opensearch:9200` was present in `.env` at deploy time. Check Lambda logs through Floci. Search is eventually consistent; wait a few seconds and retry.
+- **Lambda never indexes OpenSearch.** Confirm Floci has the Docker socket, OpenSearch is on the same compose network, and `OPENSEARCH_ENDPOINT=http://opensearch:9200` was present in `.env` at deploy time. In AWS, check the `/ecommerce/index-users` or `/ecommerce/index-products` CloudWatch log group; with local Floci, check its Lambda log output. Search is eventually consistent; wait a few seconds and retry.
 - **API can search but Lambda cannot (or the reverse).** Use `localhost:9200` only from the host process. Use `http://opensearch:9200` only from Lambda containers.
 - **OpenSearch not ready.** Wait for `curl http://localhost:9200/_cluster/health` to succeed before creating users or products.
 - **Port already in use.** Another process is bound to `4566`, `9200`, or `8080`. Stop it or change `PORT` for the API.

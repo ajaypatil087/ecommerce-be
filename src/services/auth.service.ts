@@ -4,6 +4,7 @@ import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcryptjs";
 import authSchema from "../dto/authSchema";
 import jwt from "jsonwebtoken";
+import logger from "../util/logger";
 
 export const authService = async (req: Request, res: Response) => {
   try {
@@ -41,7 +42,7 @@ export const authService = async (req: Request, res: Response) => {
     const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || "default_secret", { expiresIn: "7d" });
     return res.status(200).json({ user: userWithoutPassword, token });
   } catch (error) {
-    console.error("Error in authService:", error);
+    logger.error({ err: error }, "Authentication service failed");
     return res.status(500).json({ error: "Internal server error" });
   }
 };

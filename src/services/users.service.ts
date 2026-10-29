@@ -5,6 +5,8 @@ import userSchema from "../dto/userSchema";
 import { dynamoDbClient, USERS_TABLE } from "../db/dynamoDB";
 import { PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcryptjs";
+import { getAuthenticatedUserId } from "../util/common";
+import logger from "../util/logger";
 
 type SearchCursor = { sort: Array<string | number | boolean> };
 
@@ -140,7 +142,7 @@ export const searchUsers = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("OpenSearch query failed:", error);
+    logger.error({ err: error }, "OpenSearch user query failed");
     return res.status(502).json({ error: "Search service is unavailable" });
   }
 };
@@ -195,7 +197,7 @@ export const getUsers = async (req: Request, res: Response) => {
       pagination: { limit, nextCursor, hasMore: nextCursor !== null },
     });
   } catch (error) {
-    console.error("Error fetching users:", error);
+    logger.error({ err: error }, "Failed to fetch users");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -236,11 +238,11 @@ export const createUser = async (req: Request, res: Response) => {
         ConditionExpression: "attribute_not_exists(id)", // Ensure no overwrite
       }),
     );
-    console.log("User created: ", user.id);
+    logger.info({ userId: user.id }, "User created");
     const { passwordHash, ...userWithoutPassword } = user;
     return res.status(201).json({ user: userWithoutPassword });
   } catch (error) {
-    console.error("Error creating user:", error);
+    logger.error({ err: error }, "Failed to create user");
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -264,7 +266,27 @@ export const getUserById = async (req: Request, res: Response) => {
     const { passwordHash, ...userWithoutPassword } = user.Items[0];
     return res.status(200).json({ user: userWithoutPassword });
   } catch (error) {
-    console.error("Error fetching user:", error);
+    logger.error({ err: error }, "Failed to fetch user");
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const mySelf = async (req: Request, res: Response) => {
+  try {
+    const id = getAuthenticatedUserId(req);
+    const user = await dynamoDbClient.send(
+      new QueryCommand({
+        TableName: USERS_TABLE,
+        KeyConditionExpression: "id = :id",
+        ExpressionAttributeValues: {
+          ":id": id,
+        },
+        Limit: 1,
+      }),
+    );
+    return res.status(200).json({ user });
+  } catch (error) {
+    logger.error({ err: error }, "Failed to fetch user");
     return res.status(500).json({ error: "Internal server error" });
   }
 };

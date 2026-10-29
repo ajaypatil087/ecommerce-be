@@ -1,5 +1,5 @@
 import * as cdk from "aws-cdk-lib/core";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { InfraStack } from "../lib/infra-stack";
 
@@ -46,5 +46,30 @@ test("DynamoDB stream invokes the OpenSearch indexer", () => {
   });
   template.resourceCountIs("AWS::DynamoDB::Table", 3);
   template.resourceCountIs("AWS::Lambda::EventSourceMapping", 2);
+  template.resourceCountIs("AWS::Logs::LogGroup", 2);
+  template.hasResourceProperties("AWS::Logs::LogGroup", {
+    LogGroupName: "/ecommerce/index-users",
+    RetentionInDays: 30,
+  });
+  template.hasResourceProperties("AWS::Logs::LogGroup", {
+    LogGroupName: "/ecommerce/index-products",
+    RetentionInDays: 30,
+  });
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    LoggingConfig: {
+      LogFormat: "JSON",
+      ApplicationLogLevel: "INFO",
+      SystemLogLevel: "INFO",
+      LogGroup: Match.anyValue(),
+    },
+  });
+  template.hasResourceProperties("AWS::Lambda::Function", {
+    LoggingConfig: {
+      LogFormat: "JSON",
+      ApplicationLogLevel: "INFO",
+      SystemLogLevel: "INFO",
+      LogGroup: Match.anyValue(),
+    },
+  });
   template.resourceCountIs("AWS::SQS::Queue", 0);
 });

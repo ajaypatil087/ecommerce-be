@@ -5,6 +5,7 @@ import { AwsSigv4Signer } from "@opensearch-project/opensearch/aws";
 import { PRODUCTS_TABLE, dynamoDbClient } from "../db/dynamoDB";
 import { PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import productSchema from "../dto/productSchema";
+import logger from "../util/logger";
 
 type ProductSearchCursor = { sort: Array<string | number | boolean> };
 
@@ -144,7 +145,7 @@ export const searchProducts = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("OpenSearch product search failed:", error);
+    logger.error({ err: error }, "OpenSearch product search failed");
     return res.status(502).json({ error: "Product search service is unavailable" });
   }
 };
@@ -156,7 +157,7 @@ export const createProduct = async (req: Request, res: Response) => {
   }
 
   if (!PRODUCTS_TABLE) {
-    console.error("PRODUCTS_TABLE is not configured");
+    logger.error({ setting: "PRODUCTS_TABLE" }, "Product storage is not configured");
     return res.status(500).json({ error: "Product storage is not configured" });
   }
 
@@ -204,14 +205,14 @@ export const createProduct = async (req: Request, res: Response) => {
 
     return res.status(201).json(product);
   } catch (error) {
-    console.error("Failed to create product:", error);
+    logger.error({ err: error }, "Failed to create product");
     return res.status(500).json({ error: "Failed to create product" });
   }
 };
 
 export const getProducts = async (req: Request, res: Response) => {
   if (!PRODUCTS_TABLE) {
-    console.error("PRODUCTS_TABLE is not configured");
+    logger.error({ setting: "PRODUCTS_TABLE" }, "Product storage is not configured");
     return res.status(500).json({ error: "Product storage is not configured" });
   }
 
@@ -230,17 +231,17 @@ export const getProducts = async (req: Request, res: Response) => {
       products.push(...((result.Items ?? []) as Record<string, unknown>[]));
       lastEvaluatedKey = result.LastEvaluatedKey;
     } while (lastEvaluatedKey);
-    console.log(`Retrieved ${products.length} products from DynamoDB`);
+    logger.info({ count: products.length }, "Retrieved products from DynamoDB");
     return res.status(200).json({ products, count: products.length });
   } catch (error) {
-    console.error("Failed to retrieve products:", error);
+    logger.error({ err: error }, "Failed to retrieve products");
     return res.status(500).json({ error: "Failed to retrieve products" });
   }
 };
 
 export const getProductById = async (req: Request, res: Response) => {
   if (!PRODUCTS_TABLE) {
-    console.error("PRODUCTS_TABLE is not configured");
+    logger.error({ setting: "PRODUCTS_TABLE" }, "Product storage is not configured");
     return res.status(500).json({ error: "Product storage is not configured" });
   }
 
@@ -261,18 +262,18 @@ export const getProductById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    console.log("Retrieved product by ID:", result.Items[0]);
+    logger.info({ productId: id }, "Retrieved product by ID");
 
     return res.status(200).json(result.Items[0]);
   } catch (error) {
-    console.error("Failed to retrieve product by ID:", error);
+    logger.error({ err: error }, "Failed to retrieve product by ID");
     return res.status(500).json({ error: "Failed to retrieve product" });
   }
 };
 
 export const updateProduct = async (req: Request, res: Response) => {
   if (!PRODUCTS_TABLE) {
-    console.error("PRODUCTS_TABLE is not configured");
+    logger.error({ setting: "PRODUCTS_TABLE" }, "Product storage is not configured");
     return res.status(500).json({ error: "Product storage is not configured" });
   }
 
@@ -309,14 +310,14 @@ export const updateProduct = async (req: Request, res: Response) => {
 
     return res.status(200).json(updatedProduct);
   } catch (error) {
-    console.error("Failed to update product:", error);
+    logger.error({ err: error }, "Failed to update product");
     return res.status(500).json({ error: "Failed to update product" });
   }
 };
 
 export const deleteProduct = async (req: Request, res: Response) => {
   if (!PRODUCTS_TABLE) {
-    console.error("PRODUCTS_TABLE is not configured");
+    logger.error({ setting: "PRODUCTS_TABLE" }, "Product storage is not configured");
     return res.status(500).json({ error: "Product storage is not configured" });
   }
 
@@ -347,7 +348,7 @@ export const deleteProduct = async (req: Request, res: Response) => {
 
     return res.status(200).json({ message: "Product deleted successfully" });
   } catch (error) {
-    console.error("Failed to delete product:", error);
+    logger.error({ err: error }, "Failed to delete product");
     return res.status(500).json({ error: "Failed to delete product" });
   }
 };
