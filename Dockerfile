@@ -69,4 +69,4 @@ COPY --from=build /usr/src/app/dist ./dist
 EXPOSE 8080
 
 # Run the application.
-CMD npm start
+CMD ["node", "dist/src/index.js"]

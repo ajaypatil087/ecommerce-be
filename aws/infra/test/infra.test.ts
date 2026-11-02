@@ -72,4 +72,6 @@ test("DynamoDB stream invokes the OpenSearch indexer", () => {
     },
   });
   template.resourceCountIs("AWS::SQS::Queue", 0);
+  template.resourceCountIs("AWS::ECS::Cluster", 0);
+  template.resourceCountIs("AWS::ECS::Service", 0);
 });

@@ -4,6 +4,12 @@ import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as eventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ecs from "aws-cdk-lib/aws-ecs";
+import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
+import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as path from "node:path";
 import { Construct } from "constructs";
 import { createCartOrderTable } from "./tables/cart-order-table";
@@ -100,6 +106,102 @@ export class InfraStack extends cdk.Stack {
       });
       indexUsersFunction.addToRolePolicy(openSearchWritePolicy);
       indexProductsFunction.addToRolePolicy(openSearchWritePolicy);
+    }
+
+    if (process.env.DEPLOY_API_TO_ECS === "true") {
+      const requiredEcsConfig = ["API_OPENSEARCH_ENDPOINT", "API_DOMAIN_NAME", "API_CERTIFICATE_ARN"] as const;
+      const missingEcsConfig = requiredEcsConfig.filter((name) => !process.env[name]);
+      if (missingEcsConfig.length > 0) {
+        throw new Error(`DEPLOY_API_TO_ECS=true requires: ${missingEcsConfig.join(", ")}`);
+      }
+
+      const vpc = new ec2.Vpc(this, "ApiVpc", {
+        maxAzs: 2,
+        natGateways: 0,
+        subnetConfiguration: [{ name: "Public", subnetType: ec2.SubnetType.PUBLIC }],
+      });
+      const cluster = new ecs.Cluster(this, "ApiCluster", { vpc });
+      const apiLogGroup = new logs.LogGroup(this, "ApiLogGroup", {
+        logGroupName: "/ecommerce/api",
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+      });
+      const jwtSecret = new secretsmanager.Secret(this, "ApiJwtSecret", {
+        description: "JWT signing key used by the ecommerce Express API",
+        generateSecretString: {
+          secretStringTemplate: "{}",
+          generateStringKey: "JWT_SECRET",
+          passwordLength: 64,
+          excludePunctuation: true,
+        },
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+      });
+
+      const image = new ecrAssets.DockerImageAsset(this, "ApiImage", {
+        directory: path.resolve(__dirname, "../../.."),
+        file: "Dockerfile",
+        platform: ecrAssets.Platform.LINUX_AMD64,
+      });
+      const certificate = acm.Certificate.fromCertificateArn(this, "ApiCertificate", process.env.API_CERTIFICATE_ARN!);
+      const apiService = new ecsPatterns.ApplicationLoadBalancedFargateService(this, "ApiService", {
+        cluster,
+        serviceName: "ecommerce-api",
+        publicLoadBalancer: true,
+        assignPublicIp: true,
+        desiredCount: 1,
+        circuitBreaker: { rollback: true },
+        minHealthyPercent: 100,
+        cpu: 512,
+        memoryLimitMiB: 1024,
+        taskSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+        certificate,
+        redirectHTTP: true,
+        healthCheckGracePeriod: cdk.Duration.seconds(60),
+        taskImageOptions: {
+          image: ecs.ContainerImage.fromDockerImageAsset(image),
+          containerPort: 8080,
+          environment: {
+            NODE_ENV: "production",
+            LOG_LEVEL: process.env.LOG_LEVEL ?? "info",
+            USERS_TABLE: usersTable.tableName,
+            PRODUCTS_TABLE: productsTable.tableName,
+            CART_ORDERS_TABLE: cartOrderTable.tableName,
+            AWS_REGION: cdk.Stack.of(this).region,
+            OPENSEARCH_API_ENDPOINT: process.env.API_OPENSEARCH_ENDPOINT!,
+            ...(process.env.OPENSEARCH_AWS_REGION ? { OPENSEARCH_AWS_REGION: process.env.OPENSEARCH_AWS_REGION } : {}),
+          },
+          secrets: { JWT_SECRET: ecs.Secret.fromSecretsManager(jwtSecret, "JWT_SECRET") },
+          logDriver: ecs.LogDrivers.awsLogs({
+            logGroup: apiLogGroup,
+            streamPrefix: "api",
+          }),
+        },
+      });
+
+      apiService.targetGroup.configureHealthCheck({
+        path: "/health",
+        healthyHttpCodes: "200",
+      });
+
+      usersTable.grantReadWriteData(apiService.taskDefinition.taskRole);
+      productsTable.grantReadWriteData(apiService.taskDefinition.taskRole);
+      cartOrderTable.grantReadWriteData(apiService.taskDefinition.taskRole);
+
+      if (process.env.OPENSEARCH_AWS_REGION && process.env.OPENSEARCH_DOMAIN_ARN) {
+        apiService.taskDefinition.taskRole.addToPrincipalPolicy(
+          new iam.PolicyStatement({
+            actions: ["es:ESHttpGet", "es:ESHttpHead", "es:ESHttpPost", "es:ESHttpPut", "es:ESHttpDelete"],
+            resources: [`${process.env.OPENSEARCH_DOMAIN_ARN}/*`],
+          }),
+        );
+      }
+
+      new cdk.CfnOutput(this, "ApiUrl", { value: `https://${process.env.API_DOMAIN_NAME}` });
+      new cdk.CfnOutput(this, "ApiLoadBalancerDnsName", {
+        value: apiService.loadBalancer.loadBalancerDnsName,
+      });
+      new cdk.CfnOutput(this, "ApiLogGroupName", { value: apiLogGroup.logGroupName });
+      new cdk.CfnOutput(this, "ApiJwtSecretArn", { value: jwtSecret.secretArn });
     }
 
     new cdk.CfnOutput(this, "UsersTableName", { value: usersTable.tableName });

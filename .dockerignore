@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules
+dist
+.git
+.gitignore
+cdk.out
+aws
+docs
+coverage
+*.log
+compose.yml
+local-stack.compose.yml
+README*

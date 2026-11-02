@@ -26,10 +26,10 @@ docker compose up -d
 
 This starts:
 
-| Service     | Image                              | Host ports | Purpose |
-|-------------|------------------------------------|------------|---------|
-| `floci`     | `floci/floci:latest`               | `4566`     | Local DynamoDB, Lambda, CloudFormation, S3, and related AWS APIs |
-| `opensearch`| `opensearchproject/opensearch:2`   | `9200`     | Search indexes for users and products |
+| Service      | Image                            | Host ports | Purpose                                                          |
+| ------------ | -------------------------------- | ---------- | ---------------------------------------------------------------- |
+| `floci`      | `floci/floci:latest`             | `4566`     | Local DynamoDB, Lambda, CloudFormation, S3, and related AWS APIs |
+| `opensearch` | `opensearchproject/opensearch:2` | `9200`     | Search indexes for users and products                            |
 
 Floci mounts the Docker socket so it can launch Lambda runtime containers on the shared `floci-net` network. Lambdas use the OpenSearch service name `http://opensearch:9200`; that hostname does not resolve from macOS, only from containers on that network.
 
@@ -136,6 +136,37 @@ aws dynamodb list-tables --endpoint-url http://localhost:4566
 You should see `users`, `products`, and `cart-order`.
 
 If you already deployed and only changed Lambda or table code, run `npx cdk deploy --require-approval never` again from `aws/infra` with the same Floci exports.
+
+## Deploy the Express API to AWS Fargate (Phase 2)
+
+The ECS service is deliberately opt-in and is **not supported by the local Floci deployment**. It creates a VPC, an internet-facing HTTPS Application Load Balancer, an ECS Fargate service, a generated JWT secret in Secrets Manager, and the `/ecommerce/api` CloudWatch log group. The API container writes Pino JSON logs to stdout; ECS forwards them to that log group. DynamoDB table removal policies are set to retain data when this AWS deployment option is enabled.
+
+Before deploying, have a registered domain whose DNS you control and an ACM certificate for that name in the **same AWS region** as the stack. The certificate must be validated and cover the configured API hostname. The API also needs a reachable OpenSearch endpoint. For managed OpenSearch, configure the domain ARN and region so the task role can SigV4-authenticate; public domain reachability/security must be configured separately. Do not use the local Docker hostname `opensearch` for the AWS service.
+
+Use real AWS credentials and the actual account/region values, and do not export the Floci endpoints from the local setup. From `aws/infra`, set:
+
+```sh
+export DEPLOY_API_TO_ECS=true
+export API_DOMAIN_NAME=api.example.com
+export API_CERTIFICATE_ARN=arn:aws:acm:us-east-1:123456789012:certificate/replace-me
+export API_OPENSEARCH_ENDPOINT=https://search-example.us-east-1.es.amazonaws.com
+export OPENSEARCH_AWS_REGION=us-east-1
+export OPENSEARCH_DOMAIN_ARN=arn:aws:es:us-east-1:123456789012:domain/search-example
+export CDK_DEFAULT_ACCOUNT=123456789012
+export CDK_DEFAULT_REGION=us-east-1
+```
+
+Bootstrap the real AWS account/region if needed, then synthesize and inspect before deploying:
+
+```sh
+npx cdk bootstrap "aws://${CDK_DEFAULT_ACCOUNT}/${CDK_DEFAULT_REGION}"
+npx cdk synth
+npx cdk deploy --require-approval broadening
+```
+
+After deployment, create a DNS alias/CNAME for the API hostname pointing at the `ApiLoadBalancerDnsName` stack output; CDK does not create a Route 53 record. The ACM certificate must cover the hostname. The stack outputs `ApiUrl`, `ApiLoadBalancerDnsName`, `ApiLogGroupName`, and `ApiJwtSecretArn`. Retrieve the generated `JWT_SECRET` from Secrets Manager for trusted clients that need to sign or verify tokens; never put it in source control or a frontend. To disable the ECS service in a future synth, unset `DEPLOY_API_TO_ECS`—review the resulting diff before deploying because it removes the service and load balancer. The retained tables and CloudWatch log group remain.
+
+Inspect API request/service logs in CloudWatch Logs under `/ecommerce/api`; use the response's `X-Trace-Id` to find all request-correlated entries.
 
 ## 6. Start the API
 

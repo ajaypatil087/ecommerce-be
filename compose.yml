@@ -25,6 +25,33 @@ services:
     networks:
       - floci-net
 
+  express-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: express-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      USERS_TABLE: users
+      PRODUCTS_TABLE: products
+      CART_ORDERS_TABLE: cart-order
+      OPENSEARCH_API_ENDPOINT: http://opensearch:9200
+    depends_on:
+      - floci
+      - opensearch
+    networks:
+      - floci-net
+
 networks:
   floci-net:
     name: floci-net
